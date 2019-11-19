@@ -1,0 +1,57 @@
+version: '3'
+services:
+  db:
+    image: mysql:8
+    ports:
+      - "${MYSQL_EXT_PORT}:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    command: mysqld --default-authentication-plugin=mysql_native_password 
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+
+  django:
+    image: django:latest
+    build:
+      context: ./django
+    volumes:
+      - ./django/code:/code
+    command: "python3 manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "${DJANGO_EXT_PORT}:8000"
+    links:
+      - db
+    depends_on:
+      - db
+
+  clickhouse:
+    image: yandex/clickhouse-server
+    volumes:
+      - chdata:/var/lib/mysql 
+    ports:
+      - "${CLICKHOUSE_EXT_PORT}:8123"
+    links:
+      - db:db
+    depends_on:
+      - db
+
+  collector:
+    image: collector:latest
+    build:
+      context: ./scripts
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    links:
+      - db
+      - clickhouse
+    
+
+volumes:
+  dbdata:
+  chdata:
